@@ -13,9 +13,10 @@ API endpoints, and integration patterns used in the Agriculture Portal's AI Inte
 4. [Crop Prediction (by Region)](#4-crop-prediction-by-region)
 5. [Yield Prediction](#5-yield-prediction)
 6. [Rainfall Prediction](#6-rainfall-prediction)
-7. [Integration Architecture](#7-integration-architecture)
-8. [API Reference](#8-api-reference)
-9. [Data Flow Diagram](#9-data-flow-diagram)
+7. [Dataset Sources & Origins](#7-dataset-sources--origins)
+8. [Integration Architecture](#8-integration-architecture)
+9. [API Reference](#9-api-reference)
+10. [Data Flow Diagram](#10-data-flow-diagram)
 
 ---
 
@@ -434,7 +435,115 @@ Output: Average rainfall for that month in mm
 
 ---
 
-## 7. Integration Architecture
+## 7. Dataset Sources & Origins
+
+All CSV datasets used in this project are sourced from **Kaggle** (a public ML platform),
+whose data ultimately traces back to **Indian Government open data portals**.
+
+### 🔗 Origin Chain
+
+```
+Government / Research Sources
+       │
+       ├── IMD (India Meteorological Dept) ──► data.gov.in ──► Kaggle ──► rainfall CSV
+       │
+       ├── Indian Agri / Fertilizer Depts ──► Augmented data ──► Kaggle ──► crop recommendation CSV
+       │
+       ├── Govt agricultural records ──► data.world ──► Kaggle ──► crop production CSV
+       │
+       └── Research compilation ──► Kaggle ──► fertilizer recommendation CSV
+```
+
+---
+
+### 📂 Dataset 1 — `Crop_recommendation.csv`
+
+| Field | Detail |
+|---|---|
+| **Kaggle URL** | https://www.kaggle.com/datasets/atharvaingle/crop-recommendation-dataset |
+| **Author** | Atharva Ingle (`@AtharvaIngle7`) |
+| **License** | **Apache 2.0** (Free to use, modify, distribute) |
+| **Published** | December 2020 |
+| **Downloads** | ~92,000+ |
+| **Views** | ~491,000+ |
+| **Origin** | Augmented from Indian rainfall, climate & fertilizer databases |
+| **Description** | *"Build a predictive model to recommend the most suitable crops to grow in a particular farm based on various parameters"* |
+
+**Why this dataset?**  
+It is the most widely-used Indian crop recommendation dataset with clean, well-labelled soil+climate features across 22 crop classes — ideal for training a Random Forest classifier.
+
+---
+
+### 📂 Dataset 2 — `fertilizer_recommendation.csv`
+
+| Field | Detail |
+|---|---|
+| **Kaggle URL** | https://www.kaggle.com/datasets/gdabhishek/fertilizer-prediction |
+| **Author** | G D Abhishek (`@gdabhishek`) |
+| **License** | Unknown (research/compilation) |
+| **Published** | November 2019 |
+| **Downloads** | ~11,000 |
+| **Views** | ~64,000 |
+| **Origin** | *"Researched from various websites and sources"* — compiled fertilizer usage data |
+| **Description** | *"Data of various fertilizers information — soil conditions mapped to fertilizer types"* |
+
+**Why this dataset?**  
+The only readily available structured dataset linking soil NPK, moisture, soil type, and crop type to specific fertilizer names in an Indian agricultural context.
+
+---
+
+### 📂 Dataset 3 — `crop_production_karnataka.csv` + `preprocessed2.csv`
+
+Both files originate from the **same** Kaggle source — one is a Karnataka-filtered subset, the other is the full multi-state version.
+
+| Field | Detail |
+|---|---|
+| **Kaggle URL** | https://www.kaggle.com/datasets/abhinand05/crop-production-in-india |
+| **Author** | Abhinand (`@abhinand05`) |
+| **License** | As specified in dataset description |
+| **Published** | November 2019 |
+| **Downloads** | ~17,000 |
+| **Views** | ~97,000 |
+| **True Origin** | [data.world/thatzprem/agriculture-india](https://data.world/thatzprem/agriculture-india) → originally compiled from **Government of India agricultural production records** |
+| **Description** | *"Huge amount of information on crop production in India ranging from several years — State/District/Season/Area/Production"* |
+
+**Usage in this project:**
+- `crop_production_karnataka.csv` → **Karnataka rows only** → used for Yield Prediction (Random Forest Regressor)
+- `preprocessed2.csv` → **All-India rows**, pre-processed (State, District, Season, Crop only) → used to train the custom Decision Tree pkl model
+
+---
+
+### 📂 Dataset 4 — `rainfall_in_india_1901-2015.csv`
+
+| Field | Detail |
+|---|---|
+| **Kaggle URL** | https://www.kaggle.com/datasets/rajanand/rainfall-in-india |
+| **Author** | RAJANAND ILANGOVAN (`@iRajanand`) |
+| **License** | **CC BY-SA 4.0** (Open — attribution required) |
+| **Published** | 2017 (Version 2) |
+| **Downloads** | ~47,000 |
+| **Views** | ~217,000 |
+| **True Origin** | **India Meteorological Department (IMD)** — official govt data published on [data.gov.in](https://data.gov.in/catalog/rainfall-india) under **Government Open Data License - India** |
+| **Description** | *"Sub-division wise monthly data for 115 years from 1901–2015. 36 meteorological sub-divisions, monthly granularity, unit: mm"* |
+
+**Why this dataset?**  
+IMD is the authoritative source for Indian rainfall records. 115 years of data across all 36 sub-divisions provides a reliable historical average for each region and month.
+
+---
+
+### 📊 Datasets at a Glance
+
+| File | Kaggle Author | True Origin | License | Size | Records |
+|---|---|---|---|---|---|
+| `Crop_recommendation.csv` | Atharva Ingle | Indian Agri/Climate DBs | Apache 2.0 | ~150 KB | 2,200 |
+| `fertilizer_recommendation.csv` | G D Abhishek | Research compilation | Unknown | ~3.8 KB | ~100 |
+| `crop_production_karnataka.csv` | Abhinand | Govt of India agri records | As described | ~1.1 MB | ~30,000 |
+| `preprocessed2.csv` | Abhinand (same) | Govt of India agri records | As described | ~12 MB | ~300,000 |
+| `rainfall_in_india_1901-2015.csv` | Rajanand Ilangovan | IMD / data.gov.in | CC BY-SA 4.0 | ~515 KB | ~4,140 |
+
+---
+
+## 8. Integration Architecture
 
 ### Node.js → Python Bridge
 
@@ -474,7 +583,7 @@ const runPython = (scriptName, args) => {
 
 ---
 
-## 8. API Reference
+## 9. API Reference
 
 Base URL: `http://localhost:5000/api/intelligence`
 
@@ -534,7 +643,7 @@ Response: OpenAI-compatible (via Groq — llama-3.3-70b-versatile)
 
 ---
 
-## 9. Data Flow Diagram
+## 10. Data Flow Diagram
 
 ```
 USER INPUT (React Frontend)
