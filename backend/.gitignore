@@ -1,0 +1,37 @@
+# Node modules
+node_modules/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage
+coverage/
+
+# Environment variables
+.env
+
+# Build output
+dist/
+build/
+
+# Optional npm cache
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# VS Code / IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
