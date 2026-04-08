@@ -487,29 +487,6 @@ name, email, message, timestamps
 
 ---
 
-## 🛠️ Recent Changes (Migration from PHP)
-
-| Area | Change |
-|---|---|
-| **Stack** | PHP + MySQL + XAMPP → MERN (MongoDB + Express + React 19 + Node.js) |
-| **Auth** | PHP sessions → JWT (bcryptjs + jsonwebtoken) |
-| **Database** | MySQL tables → MongoDB Atlas (Mongoose ODM) |
-| **Frontend** | PHP-rendered HTML → React 19 SPA with React Router v7 |
-| **State** | Page reloads → Redux Toolkit (auth + cart + prediction slices) |
-| **Cart** | PHP `$_SESSION` → Redux slice + localStorage persistence (survives Stripe redirect) |
-| **Payments** | Basic PHP form → Stripe Checkout Session + verify-session fulfillment (idempotent) |
-| **Product Images** | PHP file_move → Multer (Node.js) serving via `/uploads` static route |
-| **ML** | None in PHP → 5 Python ML scripts via `child_process.spawn` |
-| **AI Chat** | None → Groq Llama 3.3 70B proxy endpoint |
-| **Marketplace** | New feature — browse, product details, cart, Stripe checkout, My Orders |
-| **Intelligence Hub** | New — customer-facing crop & fertilizer recommendation UI |
-| **Customer `MyOrders`** | New — order history page |
-| **Customer `CropStocks`** | New — stock browsing page |
-| **Farmer `SellingHistory`** | New — shows all orders containing farmer's products |
-| **Admin Stock** | Now correctly queries all Products (not just the admin's) |
-
----
-
 ## 📄 License
 
 This project is part of an academic Major Project. All rights reserved.
