@@ -2,9 +2,6 @@
 
 A full-stack **MERN** web application built as a Major Academic Project — combining AI-powered agricultural analytics with a direct-to-consumer (D2C) crop marketplace. Purpose-built for Indian farmers and customers, it features 5 Python-based ML models, a Groq Llama 3.3 AI chatbot, live weather forecasting, a news feed, Stripe payments, and a complete admin panel.
 
-> **Migrated from:** PHP + MySQL + XAMPP  
-> **Migrated to:** MERN Stack (MongoDB + Express.js + React 19 + Node.js) with Python ML integration
-
 ---
 
 ## ✨ Features
