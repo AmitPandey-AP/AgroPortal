@@ -2,9 +2,6 @@
 
 A full-stack **MERN** web application built as a Major Academic Project — combining AI-powered agricultural analytics with a direct-to-consumer (D2C) crop marketplace. Purpose-built for Indian farmers and customers, it features 5 Python-based ML models, a Groq Llama 3.3 AI chatbot, live weather forecasting, a news feed, Stripe payments, and a complete admin panel.
 
-> **Migrated from:** PHP + MySQL + XAMPP  
-> **Migrated to:** MERN Stack (MongoDB + Express.js + React 19 + Node.js) with Python ML integration
-
 ---
 
 ## ✨ Features
@@ -484,29 +481,6 @@ name, email, message, timestamps
 2. JWT stored in Redux state + `localStorage`
 3. Axios interceptor in `api.js` auto-attaches `Authorization: Bearer <token>` header
 4. `authMiddleware.js protect()` verifies JWT on every protected route
-
----
-
-## 🛠️ Recent Changes (Migration from PHP)
-
-| Area | Change |
-|---|---|
-| **Stack** | PHP + MySQL + XAMPP → MERN (MongoDB + Express + React 19 + Node.js) |
-| **Auth** | PHP sessions → JWT (bcryptjs + jsonwebtoken) |
-| **Database** | MySQL tables → MongoDB Atlas (Mongoose ODM) |
-| **Frontend** | PHP-rendered HTML → React 19 SPA with React Router v7 |
-| **State** | Page reloads → Redux Toolkit (auth + cart + prediction slices) |
-| **Cart** | PHP `$_SESSION` → Redux slice + localStorage persistence (survives Stripe redirect) |
-| **Payments** | Basic PHP form → Stripe Checkout Session + verify-session fulfillment (idempotent) |
-| **Product Images** | PHP file_move → Multer (Node.js) serving via `/uploads` static route |
-| **ML** | None in PHP → 5 Python ML scripts via `child_process.spawn` |
-| **AI Chat** | None → Groq Llama 3.3 70B proxy endpoint |
-| **Marketplace** | New feature — browse, product details, cart, Stripe checkout, My Orders |
-| **Intelligence Hub** | New — customer-facing crop & fertilizer recommendation UI |
-| **Customer `MyOrders`** | New — order history page |
-| **Customer `CropStocks`** | New — stock browsing page |
-| **Farmer `SellingHistory`** | New — shows all orders containing farmer's products |
-| **Admin Stock** | Now correctly queries all Products (not just the admin's) |
 
 ---
 
