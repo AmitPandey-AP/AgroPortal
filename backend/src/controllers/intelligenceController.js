@@ -1,7 +1,9 @@
 const { spawn } = require('child_process');
 const axios = require('axios');
 const path = require('path');
+const { validateFields, validateStrings } = require('../utils/validation');
 
+/* ─── Shared Python runner ──────────────────────────────────────────────────── */
 const runPython = (scriptName, args) => {
   return new Promise((resolve, reject) => {
     const scriptPath = path.join(__dirname, '../scripts', scriptName);
@@ -17,17 +19,30 @@ const runPython = (scriptName, args) => {
   });
 };
 
-// @desc    Predict Crop by State/District/Season (Python ML - Decision Tree)
-// @route   POST /api/intelligence/predict/crop
+/* ─── Helper: send validation errors ────────────────────────────────────────── */
+const sendValidationError = (res, errors) => {
+  return res.status(400).json({
+    message: 'Validation failed — please correct the highlighted fields.',
+    errors,
+  });
+};
+
+/* ─── Predict Crop (State / District / Season — Decision Tree) ──────────────── */
+// @route POST /api/intelligence/predict/crop
 const predictCrop = async (req, res) => {
   try {
-    const { state, district, season } = req.body;
-    if (!state || !district || !season)
-      return res.status(400).json({ message: 'state, district, and season are required' });
+    // String-only inputs — validate presence & safety
+    const { errors: strErrors, sanitized: strData } = validateStrings(
+      req.body,
+      ['state', 'district', 'season']
+    );
+    if (strErrors.length) return sendValidationError(res, strErrors);
+
+    const { state, district, season } = strData;
 
     const result = await runPython(
       'crop_prediction/ZDecision_Tree_Model_Call.py',
-      [state, district, season]   // plain strings — no JSON.stringify
+      [state, district, season]
     );
     res.json({ prediction: result, district, season });
   } catch (error) {
@@ -36,14 +51,31 @@ const predictCrop = async (req, res) => {
   }
 };
 
-// @desc    Predict Yield
-// @route   POST /api/intelligence/predict/yield
+/* ─── Predict Yield ──────────────────────────────────────────────────────────── */
+// @route POST /api/intelligence/predict/yield
 const predictYield = async (req, res) => {
   try {
-    const { state, district, season, crop, area } = req.body;
+    // Validate string fields
+    const { errors: strErrors, sanitized: strData } = validateStrings(
+      req.body,
+      ['state', 'district', 'season', 'crop']
+    );
+
+    // Validate numeric field: area
+    const { errors: numErrors, sanitized: numData } = validateFields(
+      req.body,
+      ['area']
+    );
+
+    const allErrors = [...strErrors, ...numErrors];
+    if (allErrors.length) return sendValidationError(res, allErrors);
+
+    const { state, district, season, crop } = strData;
+    const { area } = numData;
+
     const result = await runPython(
       'yield_prediction/yield_prediction.py',
-      [state, district, season, crop, String(area)]   // strings plain, area as string number
+      [state, district, season, crop, String(area)]
     );
     res.json({ prediction: result, unit: 'Quintal' });
   } catch (error) {
@@ -52,14 +84,18 @@ const predictYield = async (req, res) => {
   }
 };
 
-// @desc    Predict Rainfall
-// @route   POST /api/intelligence/predict/rainfall
+/* ─── Predict Rainfall ───────────────────────────────────────────────────────── */
+// @route POST /api/intelligence/predict/rainfall
 const predictRainfall = async (req, res) => {
   try {
-    const { region, month } = req.body;
+    const { errors, sanitized } = validateStrings(req.body, ['region', 'month']);
+    if (errors.length) return sendValidationError(res, errors);
+
+    const { region, month } = sanitized;
+
     const result = await runPython(
       'rainfall_prediction/rainfall_prediction.py',
-      [region, month]   // plain strings
+      [region, month]
     );
     res.json({ prediction: result, unit: 'mm', region, month });
   } catch (error) {
@@ -68,14 +104,25 @@ const predictRainfall = async (req, res) => {
   }
 };
 
-// @desc    Recommend Crop (N,P,K,T,H,pH,R) via Python ML
-// @route   POST /api/intelligence/recommend/crop
+/* ─── Recommend Crop (N, P, K, temp, humidity, pH, rainfall) ───────────────── */
+// @route POST /api/intelligence/recommend/crop
 const recommendCrop = async (req, res) => {
   try {
-    const { N, P, K, temperature, humidity, ph, rainfall } = req.body;
+    const { errors, sanitized } = validateFields(
+      req.body,
+      ['N', 'P', 'K', 'temperature', 'humidity', 'ph', 'rainfall']
+    );
+    if (errors.length) return sendValidationError(res, errors);
+
+    const { N, P, K, temperature, humidity, ph, rainfall } = sanitized;
+
     const result = await runPython(
       'crop_recommendation/recommend.py',
-      [JSON.stringify(N), JSON.stringify(P), JSON.stringify(K), JSON.stringify(temperature), JSON.stringify(humidity), JSON.stringify(ph), JSON.stringify(rainfall)]
+      [
+        JSON.stringify(N), JSON.stringify(P), JSON.stringify(K),
+        JSON.stringify(temperature), JSON.stringify(humidity),
+        JSON.stringify(ph), JSON.stringify(rainfall),
+      ]
     );
     res.json({ recommendation: result });
   } catch (error) {
@@ -84,17 +131,34 @@ const recommendCrop = async (req, res) => {
   }
 };
 
-// @desc    Recommend Fertilizer via Python ML
-// @route   POST /api/intelligence/recommend/fertilizer
+/* ─── Recommend Fertilizer ───────────────────────────────────────────────────── */
+// @route POST /api/intelligence/recommend/fertilizer
 const recommendFertilizer = async (req, res) => {
   try {
-    const { N, P, K, temperature, humidity, soilMoisture, soilType, crop } = req.body;
+    // Numeric fields
+    const { errors: numErrors, sanitized: numData } = validateFields(
+      req.body,
+      ['N', 'P', 'K', 'temperature', 'humidity', 'soilMoisture']
+    );
+
+    // String fields
+    const { errors: strErrors, sanitized: strData } = validateStrings(
+      req.body,
+      ['soilType', 'crop']
+    );
+
+    const allErrors = [...numErrors, ...strErrors];
+    if (allErrors.length) return sendValidationError(res, allErrors);
+
+    const { N, P, K, temperature, humidity, soilMoisture } = numData;
+    const { soilType, crop } = strData;
+
     const result = await runPython(
       'fertilizer_recommendation/fertilizer_recommendation.py',
       [
         String(N), String(P), String(K),
         String(temperature), String(humidity),
-        String(soilMoisture), soilType, crop   // soilType & crop are plain strings — no JSON.stringify
+        String(soilMoisture), soilType, crop,
       ]
     );
     res.json({ recommendation: result });
@@ -104,12 +168,14 @@ const recommendFertilizer = async (req, res) => {
   }
 };
 
-// @desc    5-day Weather Forecast by city name
-// @route   GET /api/intelligence/weather?city=Mysore
+/* ─── Live Weather ───────────────────────────────────────────────────────────── */
+// @route GET /api/intelligence/weather?city=Mysore
 const getWeather = async (req, res) => {
   try {
-    const { city } = req.query;
-    if (!city) return res.status(400).json({ message: 'city is required' });
+    const city = (req.query.city || '').trim();
+    if (!city) return res.status(400).json({ message: 'city query parameter is required.' });
+    if (city.length > 100) return res.status(400).json({ message: 'city name is too long.' });
+    if (/[<>{}|\\^`]/.test(city)) return res.status(400).json({ message: 'city name contains invalid characters.' });
 
     const apiKey = process.env.OPENWEATHER_API_KEY;
     if (!apiKey || apiKey === 'mock') {
@@ -132,8 +198,8 @@ const getWeather = async (req, res) => {
   }
 };
 
-// @desc    Get Agriculture/Farmers News from NewsAPI
-// @route   GET /api/intelligence/news
+/* ─── Agriculture News ───────────────────────────────────────────────────────── */
+// @route GET /api/intelligence/news
 const getNews = async (req, res) => {
   try {
     const apiKey = process.env.NEWS_API_KEY;
@@ -153,13 +219,35 @@ const getNews = async (req, res) => {
   }
 };
 
-// @desc    ChatBot proxy to Groq API (OpenAI-compatible, free & ultra-fast)
-// @route   POST /api/intelligence/chatbot
+/* ─── ChatBot (Groq proxy) ───────────────────────────────────────────────────── */
+// @route POST /api/intelligence/chatbot
 const chatBot = async (req, res) => {
   try {
     const { messages } = req.body;
-    const apiKey = process.env.GROQ_API_KEY;
 
+    // Basic structural validation
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ message: 'messages must be a non-empty array.' });
+    }
+    if (messages.length > 100) {
+      return res.status(400).json({ message: 'Conversation history is too long (max 100 messages).' });
+    }
+    for (const msg of messages) {
+      if (!msg.role || !msg.content) {
+        return res.status(400).json({ message: 'Each message must have a role and content.' });
+      }
+      if (!['user', 'assistant', 'system'].includes(msg.role)) {
+        return res.status(400).json({ message: `Invalid message role: "${msg.role}". Must be user, assistant, or system.` });
+      }
+      if (typeof msg.content !== 'string' || msg.content.length === 0) {
+        return res.status(400).json({ message: 'Message content must be a non-empty string.' });
+      }
+      if (msg.content.length > 4000) {
+        return res.status(400).json({ message: 'A single message exceeds the 4000-character limit.' });
+      }
+    }
+
+    const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey || apiKey === 'mock') {
       return res.json({
         choices: [{
@@ -171,8 +259,6 @@ const chatBot = async (req, res) => {
       });
     }
 
-    // Groq is 100% OpenAI-compatible — same request format, just different base URL
-    // Prepend a system message for agriculture context
     const fullMessages = [
       {
         role: 'system',
@@ -197,7 +283,6 @@ const chatBot = async (req, res) => {
       }
     );
 
-    // Groq returns exact OpenAI format — pass through directly
     res.json(data);
   } catch (error) {
     console.error('Groq chatbot error:', error.response?.data || error.message);
@@ -215,4 +300,3 @@ module.exports = {
   getNews,
   chatBot,
 };
-

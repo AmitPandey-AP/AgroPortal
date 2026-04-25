@@ -4,14 +4,23 @@ import { INDIAN_STATES, DISTRICTS_BY_STATE, CROP_OPTIONS_BY_DISTRICT_SEASON } fr
 
 const SEASONS = ['Kharif', 'Rabi', 'Summer', 'WholeYear'];
 
+const validateArea = (value) => {
+  if (value === '' || value === null || value === undefined) return 'Area is required.';
+  const num = Number(value);
+  if (isNaN(num)) return 'Area must be a number.';
+  if (num <= 0)        return 'Area must be greater than 0 hectares.';
+  if (num > 100000)    return 'Area cannot exceed 100,000 hectares.';
+  return null;
+};
 
 const YieldPrediction = () => {
   const [form, setForm] = useState({ state: 'Karnataka', district: '', season: '', crop: '', area: '' });
   const [result, setResult] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [areaError, setAreaError] = useState('');
+  const [areaTouched, setAreaTouched] = useState(false);
 
-  // Reset district & crop when state changes, reset crop when season changes
   const onChange = (e) => {
     const { name, value } = e.target;
     setForm(prev => ({
@@ -20,6 +29,14 @@ const YieldPrediction = () => {
       ...(name === 'state'  ? { district: '', crop: '' } : {}),
       ...(name === 'season' ? { crop: '' } : {}),
     }));
+    if (name === 'area' && areaTouched) {
+      setAreaError(validateArea(value));
+    }
+  };
+
+  const onAreaBlur = () => {
+    setAreaTouched(true);
+    setAreaError(validateArea(form.area));
   };
 
   const districtOptions = DISTRICTS_BY_STATE[form.state] || DISTRICTS_BY_STATE['default'] || [];
@@ -27,6 +44,12 @@ const YieldPrediction = () => {
 
   const onSubmit = async (e) => {
     e.preventDefault();
+    // Re-validate area on submit
+    const err = validateArea(form.area);
+    setAreaTouched(true);
+    setAreaError(err);
+    if (err) return;
+
     setLoading(true);
     setError('');
     setResult('');
@@ -35,11 +58,17 @@ const YieldPrediction = () => {
       const { data } = await api.post('/intelligence/predict/yield', payload);
       setResult(data.prediction || 'No prediction returned');
     } catch (err) {
-      setError(err.response?.data?.detail || err.response?.data?.message || 'Prediction failed. Ensure Python ML models are set up.');
+      const errData = err.response?.data;
+      if (errData?.errors?.length) {
+        setError(errData.errors.join(' | '));
+      } else {
+        setError(errData?.detail || errData?.message || 'Prediction failed. Ensure Python ML models are set up.');
+      }
     } finally {
       setLoading(false);
     }
   };
+
 
   const fieldStyle = { display: 'flex', flexDirection: 'column', gap: '0.4rem' };
   const labelStyle = { fontSize: '0.8rem', fontWeight: 600, color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', letterSpacing: '0.05em' };
@@ -142,13 +171,20 @@ const YieldPrediction = () => {
                   className="form-control"
                   type="number"
                   step="0.01"
-                  min="0.1"
+                  min="0.01"
                   name="area"
                   value={form.area}
                   onChange={onChange}
+                  onBlur={onAreaBlur}
                   placeholder="e.g. 2.5"
-                  required
+                  style={{
+                    borderColor: areaError ? '#ef4444' : undefined,
+                    background:  areaError ? 'rgba(239,68,68,0.06)' : undefined,
+                  }}
                 />
+                {areaError && (
+                  <span style={{ color: '#fca5a5', fontSize: '0.72rem' }}>⚠ {areaError}</span>
+                )}
               </div>
 
               {/* Submit */}

@@ -1,6 +1,46 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api, { BACKEND_URL } from '../../services/api';
+
+/* ─── Voice styles (injected once) ─────────────────────────────────────────── */
+const VOICE_STYLES_HUB = `
+@keyframes micPulseHub {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+  50%       { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+}
+@keyframes speakPulseHub {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+.mic-pulse-hub  { animation: micPulseHub  1s infinite; }
+.speak-hub      { animation: speakPulseHub 0.8s infinite; }
+`;
+let _hubStylesInjected = false;
+const injectHubStyles = () => {
+  if (_hubStylesInjected) return;
+  const el = document.createElement('style');
+  el.textContent = VOICE_STYLES_HUB;
+  document.head.appendChild(el);
+  _hubStylesInjected = true;
+};
+
+/* ─── Voice helpers ─────────────────────────────────────────────────────────── */
+const getSR = () => {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  return SR ? new SR() : null;
+};
+const speakText = (text, onStart, onEnd) => {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-IN'; u.rate = 0.95; u.pitch = 1.05;
+  const voices = window.speechSynthesis.getVoices();
+  const pref = voices.find(v => /natural|google/i.test(v.name) && v.lang.startsWith('en'));
+  if (pref) u.voice = pref;
+  if (onStart) u.onstart = onStart;
+  if (onEnd)   u.onend   = onEnd;
+  window.speechSynthesis.speak(u);
+};
 
 // ─── Weather Widget ───────────────────────────────────────────────────────────
 const WeatherWidget = () => {
@@ -92,19 +132,63 @@ const WeatherWidget = () => {
 
 // ─── Mini Chatbot ─────────────────────────────────────────────────────────────
 const MiniChat = () => {
-  const [messages, setMessages] = useState([
+  injectHubStyles();
+
+  const [messages, setMessages]     = useState([
     { role: 'assistant', text: "👋 Hi! I'm AgroBot. Ask me anything about crops, farming, or market prices!" }
   ]);
-  // Keep a separate array in Groq format (role + content) for the API
   const [chatHistory, setChatHistory] = useState([]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const bottomRef = useRef(null);
+  const [input, setInput]           = useState('');
+  const [loading, setLoading]       = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [speakingIdx, setSpeakingIdx] = useState(null);
+  const [voiceSupport, setVoiceSupport] = useState({ stt: false, tts: false });
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  const bottomRef      = useRef(null);
+  const recognitionRef = useRef(null);
 
+  useEffect(() => {
+    setVoiceSupport({
+      stt: !!(window.SpeechRecognition || window.webkitSpeechRecognition),
+      tts: !!window.speechSynthesis,
+    });
+    if (window.speechSynthesis) window.speechSynthesis.getVoices();
+  }, []);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
+
+  /* ── STT ─────────────────────────────────────────────────────────────────── */
+  const toggleListening = () => {
+    if (!voiceSupport.stt) return;
+    if (isListening) { recognitionRef.current?.stop(); setIsListening(false); return; }
+    const rec = getSR();
+    if (!rec) return;
+    rec.lang = 'en-IN'; rec.interimResults = true; rec.continuous = false;
+    rec.onresult = (e) => {
+      const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+      setInput(transcript);
+    };
+    rec.onerror = () => setIsListening(false);
+    rec.onend   = () => setIsListening(false);
+    recognitionRef.current = rec;
+    rec.start();
+    setIsListening(true);
+  };
+
+  /* ── TTS ─────────────────────────────────────────────────────────────────── */
+  const speakMsg = useCallback((text, idx) => {
+    if (!voiceSupport.tts) return;
+    if (speakingIdx === idx) { window.speechSynthesis.cancel(); setSpeakingIdx(null); return; }
+    setSpeakingIdx(idx);
+    speakText(text, () => setSpeakingIdx(idx), () => setSpeakingIdx(null));
+  }, [speakingIdx, voiceSupport.tts]);
+
+  /* ── Send ─────────────────────────────────────────────────────────────────── */
   const send = async () => {
     if (!input.trim() || loading) return;
+    if (isListening) { recognitionRef.current?.stop(); setIsListening(false); }
+    window.speechSynthesis?.cancel(); setSpeakingIdx(null);
+
     const userMsg = input.trim();
     setInput('');
     const newHistory = [...chatHistory, { role: 'user', content: userMsg }];
@@ -112,10 +196,12 @@ const MiniChat = () => {
     setChatHistory(newHistory);
     setLoading(true);
     try {
-      // Route: POST /api/intelligence/chatbot  expects { messages: [{role, content}] }
       const { data } = await api.post('/intelligence/chatbot', { messages: newHistory });
       const reply = data.choices?.[0]?.message?.content || 'No response received.';
-      setMessages(prev => [...prev, { role: 'assistant', text: reply }]);
+      setMessages(prev => {
+        const updated = [...prev, { role: 'assistant', text: reply }];
+        return updated;
+      });
       setChatHistory(prev => [...prev, { role: 'assistant', content: reply }]);
     } catch (err) {
       const errMsg = '⚠️ ' + (err.response?.data?.message || 'Could not reach AI. Check GROQ_API_KEY.');
@@ -124,19 +210,44 @@ const MiniChat = () => {
   };
 
   return (
-    <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', height: 380 }}>
-      <h3 style={{ marginBottom: '1rem', flexShrink: 0 }}>🤖 AgroBot — Ask Anything</h3>
+    <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', height: 420 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexShrink: 0 }}>
+        <h3 style={{ margin: 0 }}>🤖 AgroBot — Ask Anything</h3>
+        {voiceSupport.stt && (
+          <span style={{ fontSize: '0.72rem', color: '#4ade80', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+            🎤 Voice Ready
+          </span>
+        )}
+      </div>
+
+      {/* Messages */}
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '0.75rem', paddingRight: '0.25rem' }}>
         {messages.map((m, i) => (
           <div key={i} style={{
             alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-            maxWidth: '85%',
-            background: m.role === 'user' ? 'rgba(74,222,128,0.2)' : 'rgba(255,255,255,0.06)',
-            border: `1px solid ${m.role === 'user' ? 'rgba(74,222,128,0.3)' : 'rgba(255,255,255,0.1)'}`,
-            borderRadius: m.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-            padding: '0.5rem 0.85rem', fontSize: '0.85rem', lineHeight: 1.5
+            maxWidth: '88%',
           }}>
-            {m.text}
+            <div style={{
+              background: m.role === 'user' ? 'rgba(74,222,128,0.2)' : 'rgba(255,255,255,0.06)',
+              border: `1px solid ${m.role === 'user' ? 'rgba(74,222,128,0.3)' : 'rgba(255,255,255,0.1)'}`,
+              borderRadius: m.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+              padding: '0.5rem 0.85rem', fontSize: '0.85rem', lineHeight: 1.5
+            }}>{m.text}</div>
+
+            {/* Speak button for assistant messages */}
+            {m.role === 'assistant' && voiceSupport.tts && (
+              <button
+                onClick={() => speakMsg(m.text, i)}
+                title={speakingIdx === i ? 'Stop' : 'Read aloud'}
+                className={speakingIdx === i ? 'speak-hub' : ''}
+                style={{
+                  marginTop: '3px', background: 'none', border: 'none',
+                  cursor: 'pointer', color: speakingIdx === i ? '#fbbf24' : 'rgba(255,255,255,0.3)',
+                  fontSize: '0.72rem', padding: '1px 4px', transition: 'color 0.15s'
+                }}
+              >{speakingIdx === i ? '⏹ Stop' : '🔊 Read'}</button>
+            )}
           </div>
         ))}
         {loading && (
@@ -146,16 +257,61 @@ const MiniChat = () => {
         )}
         <div ref={bottomRef} />
       </div>
-      <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+
+      {/* Input row */}
+      <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0, alignItems: 'center' }}>
+        {/* Mic Button */}
+        {voiceSupport.stt && (
+          <button
+            onClick={toggleListening}
+            title={isListening ? 'Stop listening' : 'Speak your question'}
+            className={isListening ? 'mic-pulse-hub' : ''}
+            style={{
+              width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+              background: isListening ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.08)',
+              border: `2px solid ${isListening ? '#ef4444' : 'rgba(255,255,255,0.2)'}`,
+              color: isListening ? '#ef4444' : 'rgba(255,255,255,0.6)',
+              cursor: 'pointer', fontSize: '0.95rem',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'all 0.2s'
+            }}
+          >
+            {isListening ? '⏹' : '🎤'}
+          </button>
+        )}
+
         <input
-          className="form-control" value={input}
+          className="form-control"
+          value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && send()}
-          placeholder="Ask about crops, seasons, pests..."
-          style={{ flex: 1 }}
+          placeholder={isListening ? '🎤 Listening… speak now' : 'Ask about crops, seasons, pests...'}
+          style={{
+            flex: 1,
+            background: isListening ? 'rgba(239,68,68,0.07)' : undefined,
+            borderColor: isListening ? 'rgba(239,68,68,0.4)' : undefined,
+            transition: 'all 0.2s'
+          }}
         />
-        <button className="btn btn-primary" style={{ padding: '0.5rem 1rem' }} onClick={send} disabled={loading}>Send</button>
+        <button
+          className="btn btn-primary"
+          style={{ padding: '0.5rem 1rem', flexShrink: 0 }}
+          onClick={send}
+          disabled={loading}
+        >Send</button>
       </div>
+
+      {/* Listening banner */}
+      {isListening && (
+        <div style={{
+          marginTop: '0.5rem', padding: '0.3rem 0.6rem', borderRadius: 6,
+          background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
+          color: '#fca5a5', fontSize: '0.75rem',
+          display: 'flex', alignItems: 'center', gap: '0.4rem'
+        }}>
+          <span className="speak-hub">🔴</span> Listening… speak clearly, then press Enter or click Send.
+        </div>
+      )}
     </div>
   );
 };
