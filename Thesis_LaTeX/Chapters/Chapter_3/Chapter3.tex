@@ -1,0 +1,341 @@
+%=====================================================%
+%           CHAPTER 3: METHODOLOGY
+%=====================================================%
+
+\section{Methodology}
+
+The methodology outlines the step-by-step approach followed to develop the Agricultural Web Portal. The main aim is to create a simple, useful, and reliable system that supports farmers with important information and basic prediction features. The methodology for AGROPORTAL defines the systematic approach used to transform raw environmental data into actionable agricultural intelligence.
+
+%=====================================================%
+\subsection{System Architecture}
+%=====================================================%
+
+AGROPORTAL is built on the MERN stack with a Python ML inference sidecar. The system follows a multi-layered client-server architecture where modern frontend, backend, database, and machine learning technologies work together to provide intelligent agricultural services. The frontend is developed using React.js with Vite to create a fast, responsive, and component-based user interface. The backend utilises Node.js and Express.js to manage REST APIs, authentication, routing, and communication between different system modules. MongoDB with Mongoose ODM is used as the database layer.
+
+\begin{table}[ht]
+\centering
+\caption{System Architecture Layer Summary}
+\label{tab:sys_arch}
+\begin{tabular}{|p{2.8cm}|p{3.8cm}|p{6cm}|}
+\hline
+\textbf{Layer} & \textbf{Technology} & \textbf{Purpose} \\
+\hline
+Frontend & React.js (Vite) & Responsive SPA interface and dynamic UI components \\
+\hline
+Backend & Node.js + Express.js & REST APIs, routing, authentication, server-side logic \\
+\hline
+Database & MongoDB (Mongoose ODM) & Stores users, products, orders, predictions \\
+\hline
+ML Engine & Python + scikit-learn & ML inference via \texttt{child\_process} \\
+\hline
+External APIs & OpenWeatherMap, NewsAPI, Groq & Weather updates, agricultural news, AI chatbot \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.92\textwidth]{Figures/image1.png}
+\caption{System Architecture: MERN + Python ML Hybrid}
+\label{fig:sys_arch}
+\end{figure}
+
+%=====================================================%
+\subsection{Proposed Methodology}
+%=====================================================%
+
+The proposed methodology of AGROPORTAL follows a systematic and data-driven approach. The system begins with data collection from publicly available agricultural datasets, soil databases, government weather archives (IMD), and Kaggle datasets. After collection, the data undergoes preprocessing: cleaning, normalisation, handling missing values, and feature selection.
+
+The processed data is then used to train multiple machine learning models including Random Forest, Decision Tree and regression-based algorithms. These models are integrated into the portal through a Python-based inference layer, enabling real-time predictions through REST APIs.
+
+The five primary ML tasks addressed are:
+\begin{enumerate}
+    \item \textbf{Crop Recommendation} --- What crop should I grow given my soil and climate?
+    \item \textbf{Fertilizer Recommendation} --- What fertilizer is optimal for my crop and soil conditions?
+    \item \textbf{Regional Crop Prediction} --- Which crops historically thrive in my state/district/season?
+    \item \textbf{Yield Prediction} --- How much produce (in Quintals) can I expect from a given area?
+    \item \textbf{Rainfall Prediction} --- What is the historical average rainfall for my region this month?
+\end{enumerate}
+
+%=====================================================%
+\subsection{Algorithm Used}
+%=====================================================%
+
+This section details each machine learning algorithm used in AGROPORTAL, including the mathematical foundations, training process, and integration with the web platform.
+
+%-----------------------------------------------------%
+\subsubsection{Algorithm 1 --- Random Forest Classifier (Crop Recommendation)}
+%-----------------------------------------------------%
+
+Random Forest is an ensemble learning method that constructs a multitude of decision trees and outputs the mode of the classes for classification. It uses bagging and random feature selection to build diverse, de-correlated trees.
+
+\paragraph{Mathematical Formula (Majority Vote)}
+\begin{equation}
+\hat{y} = \arg\max_{c} \sum_{t=1}^{B} \mathbf{I}(\hat{y}_t = c)
+\label{eq:rf_majority}
+\end{equation}
+
+\paragraph{Entropy and Information Gain (Split Criterion)}
+\begin{equation}
+H(S) = -\sum_{i=1}^{n} p_i \log_2(p_i)
+\label{eq:entropy}
+\end{equation}
+\begin{equation}
+IG(S, A) = H(S) - \sum_{v \in \text{values}(A)} \frac{|S_v|}{|S|} H(S_v)
+\label{eq:infogain}
+\end{equation}
+
+\paragraph{Performance Parameters}
+\begin{table}[ht]
+\centering
+\caption{Random Forest Classifier Performance Parameters}
+\label{tab:rf_perf}
+\begin{tabular}{|l|l|}
+\hline
+\textbf{Metric} & \textbf{Value} \\
+\hline
+Algorithm & RandomForestClassifier (scikit-learn) \\
+n\_estimators & 10 trees \\
+Train/Test Split & 80\% / 20\% \\
+Split Criterion & Entropy (Information Gain) \\
+Unique Output Classes & 22 crops \\
+\hline
+\end{tabular}
+\end{table}
+
+\paragraph{Dataset: Crop\_recommendation.csv}
+\begin{itemize}
+    \item Source: Kaggle (Atharva Ingle) --- Apache 2.0 License \cite{ref7}
+    \item Size: $\sim$150 KB, 2,200 records
+    \item Features: N, P, K, temperature, humidity, pH, rainfall $\rightarrow$ label (crop name)
+\end{itemize}
+
+%-----------------------------------------------------%
+\subsubsection{Algorithm 2 --- Decision Tree Classifier (Fertilizer Recommendation)}
+%-----------------------------------------------------%
+
+A Decision Tree splits the dataset based on the most significant input features. In AGROPORTAL, it is used for fertilizer recommendation with Gini Impurity as the split criterion.
+
+\paragraph{Gini Impurity}
+\begin{equation}
+\text{Gini}(S) = 1 - \sum_{i=1}^{n} p_i^2
+\label{eq:gini}
+\end{equation}
+\begin{equation}
+\text{Gini Gain}(S, A) = \text{Gini}(S) - \sum_{v} \frac{|S_v|}{|S|} \cdot \text{Gini}(S_v)
+\label{eq:gini_gain}
+\end{equation}
+
+Categorical features (Soil Type and Crop Type) are encoded using \texttt{LabelEncoder} before training.
+
+\paragraph{Dataset: fertilizer\_recommendation.csv}
+\begin{itemize}
+    \item Source: Kaggle (G D Abhishek) --- Research compilation \cite{ref8}
+    \item Size: $\sim$3.8 KB, $\sim$100 records
+    \item Features: Temperature, Humidity, Moisture, Soil Type, Crop Type, N, K, P $\rightarrow$ Fertilizer Name
+\end{itemize}
+
+%-----------------------------------------------------%
+\subsubsection{Algorithm 3 --- Custom Hand-Built CART Decision Tree (Regional Crop Prediction)}
+%-----------------------------------------------------%
+
+The regional crop prediction model uses a hand-implemented CART Decision Tree built entirely from scratch in Python. The key functions are:
+
+\begin{lstlisting}[language=Python, caption={Core CART Functions}, label={lst:cart}]
+def gini(Data):
+    classes = Data[:, -1]
+    n = len(classes)
+    _, counts = np.unique(classes, return_counts=True)
+    probabilities = counts / n
+    return 1 - np.sum(probabilities ** 2)
+
+def info_gain(left, right):
+    n = len(left) + len(right)
+    parent_gini = gini(np.vstack([left, right]))
+    weighted = (len(left)/n)*gini(left) + (len(right)/n)*gini(right)
+    return parent_gini - weighted
+
+def build_tree(Data, depth=0):
+    if len(np.unique(Data[:, -1])) == 1 or len(Data) < 2:
+        return LeafNode(Data)
+    split = find_best_split(Data)
+    if split is None:
+        return LeafNode(Data)
+    feature_idx, threshold = split
+    left  = Data[Data[:, feature_idx] <= threshold]
+    right = Data[Data[:, feature_idx] >  threshold]
+    return DecisionNode(feature_idx, threshold,
+        left_branch  = build_tree(left,  depth+1),
+        right_branch = build_tree(right, depth+1))
+\end{lstlisting}
+
+The trained tree is serialised using \texttt{joblib.dump(tree, 'filetest2.pkl')} for runtime inference without retraining.
+
+\paragraph{Dataset: preprocessed2.csv}
+\begin{itemize}
+    \item Source: Kaggle (Abhinand) --- Government of India agricultural records
+    \item Size: $\sim$12 MB, $\sim$300,000 records
+    \item Features: State\_Name, District\_Name, Season $\rightarrow$ Crop (target)
+\end{itemize}
+
+%-----------------------------------------------------%
+\subsubsection{Algorithm 4 --- Random Forest Regressor (Yield Prediction)}
+%-----------------------------------------------------%
+
+Yield prediction uses Random Forest for regression (predicting a continuous value --- production in Quintals):
+\begin{equation}
+\hat{y} = \frac{1}{B} \sum_{t=1}^{B} \hat{y}_t(x)
+\label{eq:rf_regression}
+\end{equation}
+
+Categorical columns are converted using \texttt{OneHotEncoder}. Evaluation metrics include:
+
+\begin{table}[ht]
+\centering
+\caption{Regression Evaluation Metrics}
+\label{tab:reg_metrics}
+\begin{tabular}{|l|p{4cm}|p{5cm}|}
+\hline
+\textbf{Metric} & \textbf{Formula} & \textbf{Meaning} \\
+\hline
+$R^2$ Score & $1 - SS_{res}/SS_{tot}$ & Proportion of variance explained \\
+MAE & $(1/n)\sum|y_i - \hat{y}_i|$ & Mean Absolute Error \\
+RMSE & $\sqrt{(1/n)\sum(y_i-\hat{y}_i)^2}$ & Root Mean Squared Error \\
+MAPE & $(1/n)\sum|(y_i-\hat{y}_i)/y_i|\times 100$ & Mean Absolute Percentage Error \\
+\hline
+\end{tabular}
+\end{table}
+
+\paragraph{Dataset: crop\_production\_karnataka.csv}
+\begin{itemize}
+    \item Source: Kaggle (Abhinand) --- Government of India agricultural records
+    \item Size: $\sim$1.1 MB, $\sim$30,000 records
+    \item Features: State\_Name, District\_Name, Season, Crop, Area $\rightarrow$ Production (target)
+\end{itemize}
+
+%-----------------------------------------------------%
+\subsubsection{Algorithm 5 --- Historical Mean Lookup (Rainfall Prediction)}
+%-----------------------------------------------------%
+
+The rainfall prediction module uses a statistical historical averaging approach using 115 years of IMD data:
+\begin{equation}
+\text{Rainfall}(\text{SUB}, M) = \frac{1}{N} \sum_{\text{year}=1901}^{2015} \text{Rainfall}(\text{year}, \text{SUB}, M)
+\label{eq:rainfall}
+\end{equation}
+
+\begin{lstlisting}[language=Python, caption={Rainfall Lookup Implementation}, label={lst:rainfall}]
+import pandas as pd, sys
+region = sys.argv[1]   # e.g., "KERALA"
+month  = sys.argv[2]   # e.g., "JUN"
+df     = pd.read_csv('rainfall_in_india_1901-2015.csv')
+subset = df[df['SUBDIVISION'].str.upper() == region.upper()]
+result = subset[month].mean()
+print(round(result, 2))
+\end{lstlisting}
+
+\paragraph{Dataset: rainfall\_in\_india\_1901-2015.csv}
+\begin{itemize}
+    \item Source: Kaggle (Rajanand Ilangovan) --- IMD / data.gov.in, CC BY-SA 4.0 \cite{ref9}
+    \item Size: $\sim$515 KB, 4,140 records (36 subdivisions $\times$ 115 years)
+    \item Features: SUBDIVISION, YEAR, JAN--DEC monthly rainfall (mm), ANNUAL
+\end{itemize}
+
+%=====================================================%
+\subsection{Development Tools and Frameworks}
+%=====================================================%
+
+\begin{table}[ht]
+\centering
+\caption{Development Tools and Frameworks}
+\label{tab:dev_tools}
+\begin{tabular}{|p{3cm}|p{3.5cm}|p{6cm}|}
+\hline
+\textbf{Tool Category} & \textbf{Technology} & \textbf{Rationale} \\
+\hline
+Frontend Framework & React.js (Vite) & Component-based SPA, fast HMR \\
+Backend Framework & Node.js + Express.js & Non-blocking I/O, vast npm ecosystem \\
+Database & MongoDB + Mongoose & Flexible NoSQL schema \\
+ML Language & Python 3.x & scikit-learn, Pandas, NumPy \\
+Authentication & JWT + bcrypt & Stateless, scalable token-based auth \\
+Weather API & OpenWeatherMap & Real-time 5-day forecast \\
+News API & NewsAPI.org & Live agricultural news feed \\
+AI Chatbot & Groq (llama-3.3-70b) & Fast LLM inference for farmer queries \\
+IDE & Visual Studio Code & Full-stack development and debugging \\
+Version Control & Git / GitHub & Collaborative development \\
+Package Manager & npm & Dependency management \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsubsection*{Python Scientific Libraries}
+
+\begin{table}[ht]
+\centering
+\caption{Python Scientific Library Versions}
+\label{tab:py_libs}
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Library} & \textbf{Version} & \textbf{Purpose} \\
+\hline
+scikit-learn & $\geq$ 1.0 & RF Classifier/Regressor, DecisionTree, Encoders \\
+pandas & $\geq$ 1.3 & Data loading, filtering, mean computation \\
+numpy & $\geq$ 1.21 & Array operations, Gini impurity \\
+joblib & $\geq$ 1.0 & Model serialisation (pkl save/load) \\
+\hline
+\end{tabular}
+\end{table}
+
+%=====================================================%
+\subsection{Implementation}
+%=====================================================%
+
+The implementation of AGROPORTAL is divided into three distinct user modules.
+
+\subsubsection{Farmer Module}
+
+The Farmer Module provides a dashboard for all decision-support tools. After secure login via two-factor email OTP authentication, farmers can access:
+\begin{itemize}
+    \item \textbf{AI Intelligence Hub:} Crop Recommendation, Fertilizer Advisory, Regional Crop Prediction, Yield Estimator, Rainfall Tool, AI Chatbot, Weather Dashboard, Agricultural News
+    \item \textbf{Product Management:} Add, edit, and remove crop stock with pricing and images
+    \item \textbf{Orders Dashboard:} View and manage incoming customer orders
+\end{itemize}
+
+\subsubsection{Customer Module}
+
+This module provides a marketplace for buyers. Features include:
+\begin{itemize}
+    \item Searchable and filterable product catalogue
+    \item Shopping cart with persistent state
+    \item Checkout flow with order confirmation
+    \item Invoice generation for every successful transaction
+    \item Order history dashboard
+\end{itemize}
+
+\subsubsection{Admin Module}
+
+The Admin Module provides global oversight:
+\begin{itemize}
+    \item View and manage all registered farmers and customers
+    \item Monitor platform-wide crop availability and stock levels
+    \item Respond to user queries via the ``Contact Us'' portal
+    \item View system analytics --- total users, total orders, revenue trends
+\end{itemize}
+
+\subsubsection{Security Implementation}
+
+\begin{table}[ht]
+\centering
+\caption{Security Features and Implementation}
+\label{tab:security}
+\begin{tabular}{|p{4cm}|p{9cm}|}
+\hline
+\textbf{Security Feature} & \textbf{Implementation} \\
+\hline
+Password Hashing & bcrypt with salt rounds = 10 \\
+Authentication & JWT (JSON Web Tokens) --- 7-day expiry \\
+Route Protection & \texttt{authMiddleware.js} --- verifies JWT on all protected routes \\
+Role-Based Access & Farmer / Customer / Admin roles enforced at API level \\
+Input Validation & Mongoose schema validation + express middleware \\
+\hline
+\end{tabular}
+\end{table}

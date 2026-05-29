@@ -1,0 +1,117 @@
+graph TB
+    subgraph USERS["👥 User Roles"]
+        FARMER["🌾 Farmer"]
+        CUSTOMER["🛒 Customer"]
+        ADMIN["🔑 Admin"]
+    end
+
+    subgraph FRONTEND["Frontend · React 18 + Vite + Redux Toolkit"]
+
+        subgraph REDUX["Redux Store"]
+            AUTH_SLICE["authSlice - JWT token + user role"]
+            CART_SLICE["cartSlice - localStorage persisted"]
+            PRED_SLICE["predictionSlice"]
+        end
+
+        subgraph FARMER_PAGES["Farmer Pages (role-protected)"]
+            FP1["Dashboard · Selling History"]
+            FP2["Crop Prediction · Yield Prediction · Rainfall Prediction"]
+            FP3["Crop Recommendation · Fertilizer Recommendation"]
+            FP4["AI ChatBot · Weather Forecast · News Feed"]
+        end
+
+        subgraph CUSTOMER_PAGES["Customer Pages"]
+            CP1["Marketplace · Product Details · Cart · My Orders"]
+            CP2["Crop Stocks · Intelligence Hub"]
+        end
+
+        subgraph ADMIN_PAGES["Admin Pages (role-protected)"]
+            AP1["Admin Dashboard - stats"]
+            AP2["Manage Farmers · Customers · Crop Stock · Queries"]
+        end
+
+        subgraph COMMON_PAGES["Common Pages"]
+            CM1["Login · Register · Profile · Contact · Success"]
+        end
+    end
+
+    subgraph BACKEND["Backend · Node.js + Express.js  port 5000"]
+
+        subgraph MIDDLEWARE["Middleware"]
+            JWT_MW["authMiddleware.js - protect + restrictTo role"]
+            MULTER["Multer - disk storage - 5 MB - JPEG/PNG/WEBP"]
+        end
+
+        subgraph ROUTES["API Routes"]
+            R1["/api/auth"]
+            R2["/api/farmer - farmer only"]
+            R3["/api/marketplace"]
+            R4["/api/intelligence"]
+            R5["/api/admin - admin only"]
+            R6["/api/contact"]
+        end
+
+        subgraph CONTROLLERS["Controllers"]
+            C1["authController - register · login · getMe · updateProfile"]
+            C2["farmerController - createProduct · updateProduct · deleteProduct · getDashboardStats · getSellingHistory"]
+            C3["marketplaceController - getProducts · createCheckoutSession · verifyAndFulfillSession · getMyOrders"]
+            C4["intelligenceController - predictCrop · predictYield · predictRainfall · recommendCrop · recommendFertilizer · getWeather · getNews · chatBot"]
+            C5["adminController - getAdminStats · getAllFarmers · getAllCustomers · getAllCropStock · getAllQueries"]
+            C6["contactController - saveContact"]
+        end
+
+        PYRUNNER["runPython helper - child_process.spawn - reads stdout"]
+    end
+
+    subgraph ML["Python ML Scripts  backend/src/scripts/"]
+        ML1["crop_prediction - ZDecision_Tree_Model_Call.py - Custom Decision Tree joblib pkl - preprocessed2.csv"]
+        ML2["crop_recommendation - recommend.py - RandomForestClassifier 10 estimators entropy - Crop_recommendation.csv"]
+        ML3["fertilizer_recommendation - fertilizer_recommendation.py - DecisionTreeClassifier sklearn - fertilizer_recommendation.csv"]
+        ML4["yield_prediction - yield_prediction.py - RandomForestRegressor 100 estimators OHE - crop_production_karnataka.csv"]
+        ML5["rainfall_prediction - rainfall_prediction.py - Pandas CSV historical average no model - rainfall_in_india_1901-2015.csv"]
+    end
+
+    subgraph DATABASE["MongoDB - Mongoose ODM"]
+        DB1["User - name email password role phone state district"]
+        DB2["Product - farmer ref title price stockQuantity category images isAvailable"]
+        DB3["Order - customer ref orderItems stripeSessionId status totalAmount"]
+        DB4["Contact - name email message"]
+        DB5["CropData"]
+    end
+
+    subgraph EXTERNAL["External APIs"]
+        EX1["OpenWeatherMap - /data/2.5/forecast - 5-day city forecast"]
+        EX2["NewsAPI.org - /v2/everything - agri news India"]
+        EX3["Groq API - llama-3.3-70b-versatile - Agriculture AI ChatBot"]
+        EX4["Stripe - Checkout Sessions - card payment + idempotency"]
+    end
+
+    FARMER --> FARMER_PAGES & COMMON_PAGES
+    CUSTOMER --> CUSTOMER_PAGES & COMMON_PAGES
+    ADMIN --> ADMIN_PAGES & COMMON_PAGES
+
+    FRONTEND -->|"HTTP REST Axios Bearer JWT"| BACKEND
+
+    R1 --> C1
+    R2 --> JWT_MW --> C2
+    R2 --> MULTER
+    R3 --> C3
+    R4 --> C4
+    R5 --> JWT_MW
+    JWT_MW --> C5
+    R6 --> C6
+
+    C1 --> DB1
+    C2 --> DB2
+    C3 --> DB2 & DB3
+    C5 --> DB1 & DB2 & DB4
+    C6 --> DB4
+
+    C4 --> PYRUNNER
+    PYRUNNER -->|"spawn + stdout"| ML1 & ML2 & ML3 & ML4 & ML5
+
+    C4 -->|axios.get| EX1
+    C4 -->|axios.get| EX2
+    C4 -->|axios.post| EX3
+    C3 -->|stripe SDK| EX4
+    EX4 -->|"redirect /success"| FRONTEND

@@ -1,0 +1,84 @@
+% adjustbox is used to limit the figure inside page
+% -- means normal arrow
+%  -| horizontal then vertical arrow
+%  |- vertical then horizontal arrow
+
+
+\begin{figure}[!ht]
+
+    \begin{center}
+        \begin{adjustbox}{max height=0.8\textheight, center, width=0.6\textwidth}
+            \begin{tikzpicture}[node distance=2.5cm]
+                \node (start) [startstop] {\textbf{{\Large Step 1}}};
+                \node (objectives) [process, below of = start] {\textbf{{\Large Step 2}}};
+                \node (data_collection) [process, below of = objectives] {\textbf{{\Large Aliquam sollicitudin}}};
+                \node (variables) [process, below of = data_collection] {\textbf{{\Large Step 3}}};
+                \node (filter) [process, below of = variables] {\textbf{{\Large Step 4}}};
+
+                \node (hazard) [process, below of = filter] {\textbf{{\Large Step 5}}};
+
+                \node (cox_ph) [process, below of = hazard] {\textbf{{\Large Step 6}}};
+
+                \node (ph_assumption) [process, below of = cox_ph] {\textbf{{\Large Step 7}}};
+
+                \node (violated) [process, below of = ph_assumption] {\textbf{{\Large Step 8}}};
+
+                \node (aft) [process, below of = violated] {\textbf{{\Large Step 9}}};
+
+                \node (conclusions) [process, below of = aft] {\textbf{{\Large Step 10}}};
+
+                 \node (policy) [process, below of = conclusions] {\textbf{{\Large Step 11}}};
+
+
+% ---------------------------------------------
+% All arrows (for vertical column
+% ---------------------------------------------
+
+                %  All arrows (for vertical column
+                \draw [arrow] (start) -- (objectives);
+                \draw [arrow] (objectives) -- (data_collection);
+                \draw [arrow] (data_collection) -- (variables);
+                \draw [arrow] (variables) -- (filter);
+                \draw [arrow] (filter) -- (hazard);
+                \draw [arrow] (hazard) -- (cox_ph);
+                \draw [arrow] (cox_ph) -- (ph_assumption);
+                \draw [arrow] (ph_assumption) -- (violated);
+                \draw [arrow] (violated) -- (aft);
+                \draw [arrow] (aft) -- (conclusions);
+                \draw [arrow] (conclusions) -- (policy);
+% ---------------------------------------------
+% Left Division
+% --------------------------------------------- 
+                \node (response) [process, left of = filter, xshift=-10cm, yshift=-2.6cm] {\textbf{{\Large Left 1}}};
+
+                \node (km_curve) [process, below of = response, yshift=-0.3cm] {\textbf{{\Large Left 2}}};
+                
+
+% ---------------------------------------------
+% All arrows (for the left column)
+% ---------------------------------------------
+
+                %  All arrows (for vertical column
+                \draw [arrow] (filter) -| (response);
+                \draw [arrow] (response) -- (km_curve);
+                \draw [arrow] (km_curve) |- (ph_assumption);
+
+% ---------------------------------------------
+% Right Division
+% ---------------------------------------------   
+                \node (valid) [process, right of = ph_assumption, xshift=10cm, yshift=-4cm] {\textbf{{\Large Right 1}}};
+
+% ---------------------------------------------
+% All arrows (for right column)
+% ---------------------------------------------
+
+                %  All arrows (for vertical column
+                \draw [arrow] (ph_assumption) -| (valid);
+                \draw [arrow] (valid) |- (conclusions);
+                
+            \end{tikzpicture}
+        \end{adjustbox}
+    \end{center}
+    \caption{Study methodology.}
+    \label{fig:figure3_1}
+\end{figure}

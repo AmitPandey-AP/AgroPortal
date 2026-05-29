@@ -27,14 +27,33 @@ const injectStyles = (() => {
 })();
 
 /* ─── Speech helpers ────────────────────────────────────────────────────────── */
+/*
+  User Voice
+   ↓
+  SpeechRecognition API
+    ↓
+  Text Generated
+    ↓
+  Chatbot Backend / AI Processing
+    ↓
+  Response Text
+    ↓
+  SpeechSynthesis API
+    ↓
+  Voice Output
+*/ 
+
 const getSpeechRecognition = () => {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   return SR ? new SR() : null;
 };
 
+// This function converts chatbot text response into voice.
 const speak = (text, onStart, onEnd) => {
   if (!window.speechSynthesis) return;
+  // Stops any currently speaking voice before starting new speech.
   window.speechSynthesis.cancel();
+  // Creates a speech object containing the text to speak.
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'en-IN';
   utterance.rate = 0.95;
@@ -45,6 +64,7 @@ const speak = (text, onStart, onEnd) => {
   if (preferred) utterance.voice = preferred;
   if (onStart) utterance.onstart = onStart;
   if (onEnd)   utterance.onend  = onEnd;
+  // Converts text into actual audio output.
   window.speechSynthesis.speak(utterance);
 };
 

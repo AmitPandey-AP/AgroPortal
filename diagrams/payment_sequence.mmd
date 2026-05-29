@@ -1,0 +1,19 @@
+sequenceDiagram
+    participant C as Customer Browser
+    participant BE as Express Backend
+    participant ST as Stripe API
+    participant DB as MongoDB
+
+    C->>BE: POST /api/marketplace/checkout/create-session {cartItems}
+    BE->>ST: stripe.checkout.sessions.create(lineItems + metadata)
+    ST-->>BE: { id, url }
+    BE-->>C: { id, url }
+    C->>ST: Browser → Stripe Checkout page
+    ST-->>C: Redirect /success?session_id=xxx
+    C->>BE: POST /api/marketplace/checkout/verify-session {sessionId}
+    BE->>ST: sessions.retrieve(sessionId)
+    ST-->>BE: payment_status = 'paid'
+    BE->>DB: Idempotency check — Order.findOne(stripeSessionId)
+    BE->>DB: Product.stockQuantity -= qty
+    BE->>DB: new Order(...).save()
+    BE-->>C: { message: 'Order fulfilled', order }

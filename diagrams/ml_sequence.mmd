@@ -1,0 +1,13 @@
+sequenceDiagram
+    participant FE as Frontend (React)
+    participant BE as Express Controller
+    participant PY as Python Script
+    participant DS as Dataset / .pkl
+
+    FE->>BE: POST /api/intelligence/predict/crop {state, district, season}
+    BE->>BE: validateStrings() — sanitize inputs
+    BE->>PY: spawn('python', ['ZDecision_Tree_Model_Call.py', args...])
+    PY->>DS: joblib.load('filetest2.pkl')
+    DS-->>PY: Decision Tree model loaded
+    PY-->>BE: stdout → crop list (one per line)
+    BE-->>FE: { prediction: "Rice, Wheat...", district, season }
