@@ -8,7 +8,13 @@ const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(cors());
+
+app.use(
+  cors({
+    origin: "https://agro-portal-gl5i.vercel.app",
+    credentials: true,
+  })
+);
 
 // Serve uploaded product images statically
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
