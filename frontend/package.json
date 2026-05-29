@@ -12,7 +12,6 @@
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "@reduxjs/toolkit": "^2.11.2",
-    "@rolldown/binding-win32-x64-msvc": "^1.0.0-rc.13",
     "@stripe/stripe-js": "^9.0.1",
     "axios": "^1.14.0",
     "react": "^19.2.4",
